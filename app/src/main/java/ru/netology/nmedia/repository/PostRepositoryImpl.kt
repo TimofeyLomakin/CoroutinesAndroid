@@ -48,6 +48,7 @@ class PostRepositoryImpl(private val dao: PostDao) : PostRepository {
     }
 
     override suspend fun removeById(id: Long) {
+        val backUpPost = data.value?.firstOrNull { it.id == id }
         try {
             dao.removeById(id)
 
@@ -57,20 +58,20 @@ class PostRepositoryImpl(private val dao: PostDao) : PostRepository {
             }
 
         } catch (e: IOException) {
-            getAll()
+            backUpPost?.let { dao.insert(PostEntity.fromDto(it)) }
             throw NetworkError
         } catch (e: Exception) {
-            getAll()
+            backUpPost?.let { dao.insert(PostEntity.fromDto(it)) }
             throw UnknownError
         }
 
     }
 
     override suspend fun likeById(id: Long) {
-        try {
-            val posts = data.value ?: emptyList()
-            val post = posts.firstOrNull { it.id == id } ?: return
+        val posts = data.value ?: emptyList()
+        val post = posts.firstOrNull { it.id == id } ?: return
 
+        try {
             val updatePost = post.copy(
                 likedByMe = !post.likedByMe,
                 likes = if (post.likedByMe) post.likes - 1 else post.likes + 1
@@ -92,10 +93,10 @@ class PostRepositoryImpl(private val dao: PostDao) : PostRepository {
                 dao.insert(PostEntity.fromDto(it))
             }
         } catch (e: IOException) {
-            getAll()
+            dao.insert(PostEntity.fromDto(post))
             throw NetworkError
         } catch (e: Exception) {
-            getAll()
+            dao.insert(PostEntity.fromDto(post))
             throw UnknownError
         }
     }
